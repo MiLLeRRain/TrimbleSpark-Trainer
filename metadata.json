@@ -1,0 +1,5 @@
+{
+  "name": "TrimbleSpark Trainer",
+  "description": "A specialized PySpark syntax training platform tailored for Trimble business scenarios (3D data, Geospatial, Telematics). Features AI-generated exercises, code evaluation, and spaced repetition for incorrect answers.",
+  "requestFramePermissions": []
+}
