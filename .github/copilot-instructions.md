@@ -18,17 +18,16 @@
 
 ## Gemini integration (client-side)
 - Gemini calls are made directly in the browser using `@google/genai` in [services/geminiService.ts](services/geminiService.ts).
-- API key resolution order is **user settings first** → bundled env key:
-  - `settings.geminiApiKey || process.env.API_KEY`
+- API key comes from user settings (stored in localStorage):
+  - `settings.geminiApiKey`
 - Prompts expect JSON-only responses and enforce schemas via `responseMimeType: "application/json"` and `responseSchema`.
-- Important security implication: anything injected at build-time (see [vite.config.ts](vite.config.ts)) ships to users. For GitHub Pages/static hosting, prefer the Settings modal “bring your own key” flow.
+- Security model: this is a static SPA; do not inject shared API keys at build time.
 
 ## Developer workflows
 - Install: `npm install`
 - Dev server: `npm run dev` (Vite on port `3000`, see [vite.config.ts](vite.config.ts))
 - Build: `npm run build`
 - Preview: `npm run preview`
-- Local secrets: use `.env.local` (ignored by git because of `*.local` in [.gitignore](.gitignore)).
 
 ## Project-specific patterns to follow
 - Styling is Tailwind utility classes inline in JSX (Tailwind is loaded via CDN in [index.html](index.html)).

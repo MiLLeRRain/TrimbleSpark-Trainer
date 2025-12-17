@@ -145,8 +145,8 @@ export default function App() {
     return <div className="flex h-screen items-center justify-center bg-slate-50 text-slate-400">Loading your progress...</div>;
   }
 
-  // Determine connection status: true if Env Key exists OR User Key exists
-  const isConnected = !!process.env.API_KEY || !!settings.geminiApiKey;
+  // Determine connection status: user has provided a key in Settings
+  const isConnected = !!settings.geminiApiKey;
 
   return (
     <div className="flex min-h-screen bg-slate-50">

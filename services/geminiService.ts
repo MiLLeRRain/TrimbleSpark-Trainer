@@ -3,8 +3,8 @@ import { Category, Difficulty, EvaluationResponse, GeneratedExerciseResponse, Ap
 
 // Helper to get the AI client
 const getAIClient = (settings: AppSettings) => {
-  // Priority: User Settings > Environment Variable
-  const apiKey = settings.geminiApiKey || process.env.API_KEY;
+  // This is a browser-only app: require the user to provide their own key via Settings.
+  const apiKey = settings.geminiApiKey;
   if (!apiKey) {
     throw new Error("API Key is missing. Please configure it in Settings.");
   }

@@ -38,13 +38,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
             </div>
             
             <p className="text-xs text-blue-700 mb-2 leading-relaxed">
-              When running locally (localhost), the internal environment key is not available. 
-              Please paste your personal API key here to connect to Gemini.
+              This app runs entirely in your browser.
+              Paste your personal API key here to connect to Gemini.
             </p>
 
             <input 
                type="password"
-               placeholder={process.env.API_KEY ? "System Key Active (Optional to override)" : "Paste your Google AI Studio Key"}
+              placeholder="Paste your Google AI Studio Key"
                value={formData.geminiApiKey}
                onChange={(e) => setFormData({...formData, geminiApiKey: e.target.value})}
                className="w-full bg-white border border-blue-200 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-slate-700"
