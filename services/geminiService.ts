@@ -1,10 +1,8 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { Category, Difficulty, EvaluationResponse, GeneratedExerciseResponse, AppSettings } from "../types";
+import { Category, Difficulty, EvaluationResponse, GeneratedExerciseResponse } from "../types";
 
 // Helper to get the AI client
-const getAIClient = (settings: AppSettings) => {
-  // This is a browser-only app: require the user to provide their own key via Settings.
-  const apiKey = settings.geminiApiKey;
+const getAIClient = (apiKey: string) => {
   if (!apiKey) {
     throw new Error("API Key is missing. Please configure it in Settings.");
   }
@@ -21,7 +19,7 @@ IMPORTANT: Respond ONLY with valid JSON. Do not include markdown code blocks.
 export const generateExercise = async (
   category: Category,
   difficulty: Difficulty,
-  settings: AppSettings
+  apiKey: string
 ): Promise<GeneratedExerciseResponse> => {
   
   let specificContext = "";
@@ -51,7 +49,7 @@ export const generateExercise = async (
   `;
 
   try {
-    const ai = getAIClient(settings);
+    const ai = getAIClient(apiKey);
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: prompt,
@@ -86,7 +84,7 @@ export const generateExercise = async (
 export const evaluateSubmission = async (
   exercise: GeneratedExerciseResponse,
   userCode: string,
-  settings: AppSettings
+  apiKey: string
 ): Promise<EvaluationResponse> => {
   const prompt = `
     Evaluate the user's PySpark code against the problem statement and the standard solution.
@@ -107,7 +105,7 @@ export const evaluateSubmission = async (
   const sysInstruction = "You are a friendly but strict code reviewer. Respond ONLY in JSON.";
 
   try {
-    const ai = getAIClient(settings);
+    const ai = getAIClient(apiKey);
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: prompt,

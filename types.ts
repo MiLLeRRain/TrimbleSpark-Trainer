@@ -49,5 +49,5 @@ export interface EvaluationResponse {
 }
 
 export interface AppSettings {
-  geminiApiKey: string; // Allow user to input key if env var is missing
+  geminiApiKeys: string[]; // Allow user to input multiple keys for rotation
 }

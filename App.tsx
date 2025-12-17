@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { ExerciseCard } from './components/ExerciseCard';
 import { SettingsModal } from './components/SettingsModal';
-import { Category, Difficulty, Exercise, ExerciseStatus, AppSettings } from './types';
+import { Category, Difficulty, Exercise, ExerciseStatus, AppSettings, GeneratedExerciseResponse } from './types';
 import { generateExercise, evaluateSubmission } from './services/geminiService';
 import { storageService } from './services/storage';
 import { Sparkles, Loader2, BookOpen } from 'lucide-react';
@@ -19,8 +19,9 @@ export default function App() {
   // Settings State
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settings, setSettings] = useState<AppSettings>({
-    geminiApiKey: ''
+    geminiApiKeys: []
   });
+  const [keyRotationIndex, setKeyRotationIndex] = useState(0);
 
   // Load data on mount
   useEffect(() => {
@@ -44,6 +45,7 @@ export default function App() {
 
   const handleSaveSettings = (newSettings: AppSettings) => {
     setSettings(newSettings);
+    setKeyRotationIndex(0);
     storageService.saveSettings(newSettings);
     setIsSettingsOpen(false);
   };
@@ -96,14 +98,29 @@ export default function App() {
   };
   // --------------------------------
 
+  const getValidKeys = () => settings.geminiApiKeys.filter(Boolean);
+  const hasApiKey = () => getValidKeys().length > 0;
+  const getNextApiKey = () => {
+    const validKeys = getValidKeys();
+    if (validKeys.length === 0) return null;
+    const nextIndex = keyRotationIndex % validKeys.length;
+    setKeyRotationIndex((prev) => (prev + 1) % validKeys.length);
+    return validKeys[nextIndex];
+  };
+
   const handleCreateExercise = async () => {
     if (currentCategory === 'REVIEW') return;
-    
+    if (!hasApiKey()) {
+      setError('Add at least one Gemini API key in Settings.');
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
-      // Pass settings to generator
-      const generated = await generateExercise(currentCategory, difficulty, settings);
+      const apiKey = getNextApiKey();
+      if (!apiKey) throw new Error('No valid Gemini API key available.');
+      const generated = await generateExercise(currentCategory, difficulty, apiKey);
       const newExercise: Exercise = {
         id: crypto.randomUUID(),
         category: currentCategory,
@@ -129,6 +146,17 @@ export default function App() {
     ));
   };
 
+  const evaluateExercise = async (exercise: GeneratedExerciseResponse, userCode: string) => {
+    if (!hasApiKey()) {
+      throw new Error('Add at least one Gemini API key in Settings.');
+    }
+    const apiKey = getNextApiKey();
+    if (!apiKey) {
+      throw new Error('No valid Gemini API key available.');
+    }
+    return evaluateSubmission(exercise, userCode, apiKey);
+  };
+
   const reviewList = exercises.filter(ex => ex.status === ExerciseStatus.REVIEW);
   const activeExercise = exercises.find(ex => ex.id === currentExerciseId);
   
@@ -145,8 +173,8 @@ export default function App() {
     return <div className="flex h-screen items-center justify-center bg-slate-50 text-slate-400">Loading your progress...</div>;
   }
 
-  // Determine connection status: user has provided a key in Settings
-  const isConnected = !!settings.geminiApiKey;
+  // Determine connection status: user has provided at least one key
+  const isConnected = hasApiKey();
 
   return (
     <div className="flex min-h-screen bg-slate-50">
@@ -190,7 +218,7 @@ export default function App() {
                 exercise={activeExercise}
                 onUpdateStatus={handleUpdateStatus}
                 onNext={() => setCurrentExerciseId(null)}
-                evaluator={(ex, code) => evaluateSubmission(ex, code, settings)}
+               evaluator={evaluateExercise}
              />
           </div>
         ) : (

@@ -44,10 +44,10 @@ export const storageService = {
   loadSettings: (): AppSettings => {
     const saved = localStorage.getItem(SETTINGS_KEY);
     if (saved) {
-      return JSON.parse(saved);
+      return JSON.parse(saved) as AppSettings;
     }
     return {
-      geminiApiKey: ''
+      geminiApiKeys: []
     };
   }
 };

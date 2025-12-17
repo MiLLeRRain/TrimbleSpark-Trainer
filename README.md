@@ -18,6 +18,7 @@ View your app in AI Studio: https://ai.studio/apps/drive/1uUyODNMJ3FlSDwe2ou_w6L
 2. Run the app:
    `npm run dev`
 3. Open the app and paste your Gemini API key in **API Settings**.
+   - You can paste multiple keys (one per line); the trainer will rotate through the list on every request.
 
 ## Deploy to GitHub Pages (GitHub Actions)
 

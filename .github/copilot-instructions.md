@@ -19,7 +19,8 @@
 ## Gemini integration (client-side)
 - Gemini calls are made directly in the browser using `@google/genai` in [services/geminiService.ts](services/geminiService.ts).
 - API key comes from user settings (stored in localStorage):
-  - `settings.geminiApiKey`
+  - `settings.geminiApiKeys`
+  - The Settings modal accepts newline-delimited keys and App.tsx rotates through them (`getNextApiKey()`) before every Gemini call.
 - Prompts expect JSON-only responses and enforce schemas via `responseMimeType: "application/json"` and `responseSchema`.
 - Security model: this is a static SPA; do not inject shared API keys at build time.
 

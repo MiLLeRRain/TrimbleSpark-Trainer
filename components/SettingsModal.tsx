@@ -10,11 +10,17 @@ interface SettingsModalProps {
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings, onSave }) => {
-  const [formData, setFormData] = useState<AppSettings>(settings);
+  const [keysText, setKeysText] = useState(settings.geminiApiKeys.join('\n'));
 
   useEffect(() => {
-    setFormData(settings);
+    setKeysText(settings.geminiApiKeys.join('\n'));
   }, [settings, isOpen]);
+
+  const parseKeys = () =>
+    keysText
+      .split(/\r?\n/)
+      .map(key => key.trim())
+      .filter(Boolean);
 
   if (!isOpen) return null;
 
@@ -42,13 +48,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
               Paste your personal API key here to connect to Gemini.
             </p>
 
-            <input 
-               type="password"
-              placeholder="Paste your Google AI Studio Key"
-               value={formData.geminiApiKey}
-               onChange={(e) => setFormData({...formData, geminiApiKey: e.target.value})}
-               className="w-full bg-white border border-blue-200 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-slate-700"
+            <textarea
+              placeholder="One Google AI Studio key per line"
+              value={keysText}
+              onChange={(e) => setKeysText(e.target.value)}
+              className="w-full bg-white border border-blue-200 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 h-28 resize-none"
             />
+            <p className="text-[11px] text-blue-600 mt-2">
+              Add as many keys as you want—each request rotates through the list to avoid hitting a single account limit.
+            </p>
           </div>
           
           <div className="text-xs text-slate-400 text-center">
@@ -64,7 +72,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
             Cancel
           </button>
           <button 
-            onClick={() => onSave(formData)}
+            onClick={() => onSave({ geminiApiKeys: parseKeys() })}
             className="px-6 py-2 bg-slate-900 text-white rounded-lg text-sm font-bold hover:bg-slate-800 transition-colors flex items-center gap-2"
           >
             <Save className="w-4 h-4" />
