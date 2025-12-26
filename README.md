@@ -15,16 +15,6 @@ View your app in AI Studio: https://ai.studio/apps/drive/1uUyODNMJ3FlSDwe2ou_w6L
 
 1. Install dependencies:
    `npm install`
-2. Run the app:
+2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+3. Run the app:
    `npm run dev`
-3. Open the app and paste your Gemini API key in **API Settings**.
-   - You can paste multiple keys (one per line); the trainer will rotate through the list on every request.
-
-## Deploy to GitHub Pages (GitHub Actions)
-
-1. Ensure your default branch is `main`.
-2. In GitHub: **Settings → Pages**
-   - Set **Source** to **GitHub Actions**.
-3. Push to `main`.
-
-The workflow at [.github/workflows/deploy-pages.yml](.github/workflows/deploy-pages.yml) builds the SPA and publishes `dist/` to Pages.

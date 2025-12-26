@@ -1,7 +1,7 @@
-import { Exercise, AppSettings } from '../types';
+
+import { Exercise } from '../types';
 
 const STORAGE_KEY = 'trimble_spark_trainer_v1';
-const SETTINGS_KEY = 'trimble_spark_settings_v1';
 
 export const storageService = {
   /**
@@ -35,25 +35,5 @@ export const storageService = {
    */
   clear: () => {
     localStorage.removeItem(STORAGE_KEY);
-  },
-
-  saveSettings: (settings: AppSettings) => {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-  },
-
-  loadSettings: (): AppSettings => {
-    const saved = localStorage.getItem(SETTINGS_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (!Array.isArray(parsed.geminiApiKeys) && typeof parsed.geminiApiKey === 'string') {
-        return {
-          geminiApiKeys: parsed.geminiApiKey ? [parsed.geminiApiKey] : []
-        };
-      }
-      return (parsed as AppSettings);
-    }
-    return {
-      geminiApiKeys: []
-    };
   }
 };

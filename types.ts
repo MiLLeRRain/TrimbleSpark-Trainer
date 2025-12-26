@@ -1,3 +1,4 @@
+
 export enum Difficulty {
   BEGINNER = 'Beginner',
   INTERMEDIATE = 'Intermediate',
@@ -11,24 +12,38 @@ export enum Category {
   ASSET_MGMT = 'Asset Management (Construction)'
 }
 
+export enum PointCloudTopic {
+  VOXEL = 'Voxel Downsampling',
+  BOUNDING_BOX = 'Bounding Box & Geometric Stats',
+  OUTLIER = 'Outlier Removal (SOR/ROR)',
+  TILING = 'Spatial Tiling & Octree Indexing',
+  CLASSIFICATION = 'Terrain & Ground Classification',
+  VOLUMETRICS = 'Volumetrics (Cut-and-Fill)',
+  FEATURE = 'Feature Extraction (Primitive Fitting)',
+  CHANGE_DETECTION = 'Multi-scan Change Detection',
+  MIXED = 'Mixed Point Cloud Topics'
+}
+
 export enum ExerciseStatus {
   NEW = 'NEW',
   CORRECT = 'CORRECT',
-  REVIEW = 'REVIEW', // User got it wrong and needs to review
+  REVIEW = 'REVIEW', 
 }
 
 export interface Exercise {
   id: string;
   category: Category;
+  topic?: string; 
   difficulty: Difficulty;
   title: string;
   description: string;
   inputSchema: string;
   sampleData: string;
   expectedOutputDescription: string;
-  standardSolution: string; // The "Golden" PySpark code
+  expectedOutputExample: string; // Made mandatory to fix type mismatch with GeneratedExerciseResponse
+  standardSolution: string;
   userCode?: string;
-  feedback?: string; // AI Feedback
+  feedback?: string;
   status: ExerciseStatus;
   timestamp: number;
 }
@@ -39,6 +54,7 @@ export interface GeneratedExerciseResponse {
   inputSchema: string;
   sampleData: string;
   expectedOutputDescription: string;
+  expectedOutputExample: string; // Mandatory for new generations
   standardSolution: string;
 }
 
@@ -48,6 +64,12 @@ export interface EvaluationResponse {
   improvedCode?: string;
 }
 
-export interface AppSettings {
-  geminiApiKeys: string[]; // Allow user to input multiple keys for rotation
+export interface ExamSession {
+  id: string;
+  category: Category;
+  questions: Exercise[];
+  currentIndex: number;
+  results: { [id: string]: EvaluationResponse };
+  startTime: number;
+  isFinished: boolean;
 }

@@ -1,354 +1,263 @@
+
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { ExerciseCard } from './components/ExerciseCard';
-import { SettingsModal } from './components/SettingsModal';
-import { Category, Difficulty, Exercise, ExerciseStatus, AppSettings, GeneratedExerciseResponse } from './types';
+import { ExamView } from './components/ExamView';
+import { Category, Difficulty, Exercise, ExerciseStatus, PointCloudTopic, ExamSession } from './types';
 import { generateExercise, evaluateSubmission } from './services/geminiService';
 import { storageService } from './services/storage';
-import { Sparkles, Loader2, BookOpen } from 'lucide-react';
+import { Sparkles, Loader2, BookOpen, GraduationCap, ArrowLeft } from 'lucide-react';
 
 export default function App() {
   const [currentCategory, setCurrentCategory] = useState<Category | 'REVIEW'>(Category.POINT_CLOUD);
+  const [currentTopic, setCurrentTopic] = useState<PointCloudTopic>(PointCloudTopic.MIXED);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [currentExerciseId, setCurrentExerciseId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [difficulty, setDifficulty] = useState<Difficulty>(Difficulty.BEGINNER);
   const [isStorageLoaded, setIsStorageLoaded] = useState(false);
   
-  // Settings State
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [settings, setSettings] = useState<AppSettings>({
-    geminiApiKeys: []
-  });
-  const [keyRotationIndex, setKeyRotationIndex] = useState(0);
+  const [examSession, setExamSession] = useState<ExamSession | null>(null);
+  const [examLoading, setExamLoading] = useState(false);
 
-  // Load data on mount
   useEffect(() => {
     const savedData = storageService.load();
-    if (savedData && savedData.length > 0) {
-      setExercises(savedData);
-    }
-    const savedSettings = storageService.loadSettings();
-    if (savedSettings) {
-      setSettings(savedSettings);
-    }
+    if (savedData && savedData.length > 0) setExercises(savedData);
     setIsStorageLoaded(true);
   }, []);
 
-  // Save persistence
   useEffect(() => {
-    if (isStorageLoaded) {
-      storageService.save(exercises);
-    }
+    if (isStorageLoaded) storageService.save(exercises);
   }, [exercises, isStorageLoaded]);
-
-  const handleSaveSettings = (newSettings: AppSettings) => {
-    setSettings(newSettings);
-    setKeyRotationIndex(0);
-    storageService.saveSettings(newSettings);
-    setIsSettingsOpen(false);
-  };
-
-  const handleResetData = () => {
-    storageService.clear();
-    setExercises([]);
-    setCurrentExerciseId(null);
-    setCurrentCategory(Category.POINT_CLOUD);
-  };
-
-  // --- Import / Export Handlers ---
-  const handleExportData = () => {
-    const dataStr = JSON.stringify(exercises, null, 2);
-    const blob = new Blob([dataStr], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `trimble-spark-progress-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
-  const handleImportData = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const result = e.target?.result as string;
-        if (!result) return;
-        const parsedData = JSON.parse(result);
-        
-        // Basic validation
-        if (Array.isArray(parsedData)) {
-          if (window.confirm(`Found ${parsedData.length} exercises in backup. This will overwrite your current session. Continue?`)) {
-            setExercises(parsedData as Exercise[]);
-            setCurrentExerciseId(null); // Reset view
-            alert("Progress restored successfully!");
-          }
-        } else {
-          alert("Invalid backup file format.");
-        }
-      } catch (err) {
-        console.error("Import failed", err);
-        alert("Failed to parse backup file.");
-      }
-    };
-    reader.readAsText(file);
-  };
-  // --------------------------------
-
-  const getValidKeys = () => settings.geminiApiKeys.filter(Boolean);
-  const hasApiKey = () => getValidKeys().length > 0;
-  const getNextApiKey = () => {
-    const validKeys = getValidKeys();
-    if (validKeys.length === 0) return null;
-    const nextIndex = keyRotationIndex % validKeys.length;
-    setKeyRotationIndex((prev) => (prev + 1) % validKeys.length);
-    return validKeys[nextIndex];
-  };
 
   const handleCreateExercise = async () => {
     if (currentCategory === 'REVIEW') return;
-    if (!hasApiKey()) {
-      setError('Add at least one Gemini API key in Settings.');
-      return;
-    }
-
     setLoading(true);
-    setError(null);
     try {
-      const apiKey = getNextApiKey();
-      if (!apiKey) throw new Error('No valid Gemini API key available.');
-      const generated = await generateExercise(currentCategory, difficulty, apiKey);
-      const newExercise: Exercise = {
+      const topicToUse = currentCategory === Category.POINT_CLOUD ? currentTopic : undefined;
+      const generated = await generateExercise(currentCategory, difficulty, topicToUse);
+      const newEx: Exercise = {
         id: crypto.randomUUID(),
         category: currentCategory,
-        difficulty: difficulty,
+        topic: topicToUse,
+        difficulty,
         ...generated,
         status: ExerciseStatus.NEW,
         timestamp: Date.now()
       };
-      
-      setExercises(prev => [...prev, newExercise]);
-      setCurrentExerciseId(newExercise.id);
+      setExercises(prev => [...prev, newEx]);
+      setCurrentExerciseId(newEx.id);
     } catch (err: any) {
-      const msg = err.message || "Unknown error";
-      setError(`Failed to generate: ${msg}. Check API Key in Settings.`);
-    } finally {
-      setLoading(false);
-    }
+      alert("AI generation failed. Check your network.");
+    } finally { setLoading(false); }
   };
 
-  const handleUpdateStatus = (id: string, status: ExerciseStatus, userCode: string, feedback: string) => {
-    setExercises(prev => prev.map(ex => 
-      ex.id === id ? { ...ex, status, userCode, feedback } : ex
-    ));
+  const handleGenerateNextAuto = async (baseExercise: Exercise) => {
+    setLoading(true);
+    try {
+      const generated = await generateExercise(baseExercise.category, baseExercise.difficulty, baseExercise.topic);
+      const newEx: Exercise = {
+        id: crypto.randomUUID(),
+        category: baseExercise.category,
+        topic: baseExercise.topic,
+        difficulty: baseExercise.difficulty,
+        ...generated,
+        status: ExerciseStatus.NEW,
+        timestamp: Date.now()
+      };
+      setExercises(prev => [...prev, newEx]);
+      setCurrentExerciseId(newEx.id);
+    } catch (err: any) {
+      console.error(err);
+    } finally { setLoading(false); }
   };
 
-  const evaluateExercise = async (exercise: GeneratedExerciseResponse, userCode: string) => {
-    if (!hasApiKey()) {
-      throw new Error('Add at least one Gemini API key in Settings.');
-    }
-    const apiKey = getNextApiKey();
-    if (!apiKey) {
-      throw new Error('No valid Gemini API key available.');
-    }
-    return evaluateSubmission(exercise, userCode, apiKey);
+  const handleStartExam = async () => {
+    if (currentCategory === 'REVIEW') return;
+    setExamLoading(true);
+    try {
+      const q1Gen = await generateExercise(currentCategory, Difficulty.BEGINNER);
+      const q1: Exercise = {
+        id: crypto.randomUUID(),
+        category: currentCategory,
+        difficulty: Difficulty.BEGINNER,
+        ...q1Gen,
+        status: ExerciseStatus.NEW,
+        timestamp: Date.now()
+      };
+      setExamSession({
+        id: crypto.randomUUID(),
+        category: currentCategory,
+        questions: [q1],
+        currentIndex: 0,
+        results: {},
+        startTime: Date.now(),
+        isFinished: false
+      });
+    } catch (err: any) {
+      console.error(err);
+    } finally { setExamLoading(false); }
   };
 
-  const reviewList = exercises.filter(ex => ex.status === ExerciseStatus.REVIEW);
+  const handleExamQuestionSubmit = async (code: string) => {
+    if (!examSession) return;
+    setExamLoading(true);
+    try {
+      const currentQ = examSession.questions[examSession.currentIndex];
+      const evaluation = await evaluateSubmission(currentQ, code);
+      
+      const updatedResults = { ...examSession.results, [currentQ.id]: evaluation };
+      const updatedQuestions = examSession.questions.map(q => 
+        q.id === currentQ.id ? { ...q, userCode: code, status: evaluation.isCorrect ? ExerciseStatus.CORRECT : ExerciseStatus.REVIEW, feedback: evaluation.feedback } : q
+      );
+
+      if (examSession.currentIndex < 9) {
+        let nextDiff = Difficulty.BEGINNER;
+        if (examSession.currentIndex >= 2) nextDiff = Difficulty.INTERMEDIATE;
+        if (examSession.currentIndex >= 6) nextDiff = Difficulty.ADVANCED;
+
+        const nextGen = await generateExercise(examSession.category, nextDiff);
+        const nextQ: Exercise = {
+          id: crypto.randomUUID(),
+          category: examSession.category,
+          difficulty: nextDiff,
+          ...nextGen,
+          status: ExerciseStatus.NEW,
+          timestamp: Date.now()
+        };
+
+        setExamSession({
+          ...examSession,
+          questions: [...updatedQuestions, nextQ],
+          currentIndex: examSession.currentIndex + 1,
+          results: updatedResults
+        });
+      } else {
+        setExamSession({
+          ...examSession,
+          questions: updatedQuestions,
+          results: updatedResults,
+          isFinished: true
+        });
+      }
+    } catch (err: any) {
+      console.error(err);
+    } finally { setExamLoading(false); }
+  };
+
   const activeExercise = exercises.find(ex => ex.id === currentExerciseId);
-  
-  const handleSelectCategory = (cat: Category | 'REVIEW') => {
-    setCurrentCategory(cat);
-    setCurrentExerciseId(null); 
-  };
-
-  const startReview = (id: string) => {
-    setCurrentExerciseId(id);
-  };
-
-  if (!isStorageLoaded) {
-    return <div className="flex h-screen items-center justify-center bg-slate-50 text-slate-400">Loading your progress...</div>;
-  }
-
-  // Determine connection status: user has provided at least one key
-  const isConnected = hasApiKey();
+  const reviewList = exercises.filter(ex => ex.status === ExerciseStatus.REVIEW);
 
   return (
     <div className="flex min-h-screen bg-slate-50">
       <Sidebar 
         currentCategory={currentCategory} 
-        onSelectCategory={handleSelectCategory} 
+        onSelectCategory={(cat) => { setCurrentCategory(cat); setExamSession(null); setCurrentExerciseId(null); }}
         reviewCount={reviewList.length}
-        onResetData={handleResetData}
-        onOpenSettings={() => setIsSettingsOpen(true)}
-        onExportData={handleExportData}
-        onImportData={handleImportData}
-        isConnected={isConnected}
+        onResetData={() => { storageService.clear(); setExercises([]); setCurrentExerciseId(null); setExamSession(null); }}
+        onExportData={() => {
+          const blob = new Blob([JSON.stringify(exercises, null, 2)], { type: "application/json" });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `progress.json`;
+          link.click();
+        }}
+        onImportData={(file) => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const parsed = JSON.parse(e.target?.result as string);
+            if (Array.isArray(parsed)) { setExercises(parsed); setCurrentExerciseId(null); }
+          };
+          reader.readAsText(file);
+        }}
       />
 
-      <SettingsModal 
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        settings={settings}
-        onSave={handleSaveSettings}
-      />
-
-      <main className="ml-64 flex-1 flex flex-col h-screen overflow-hidden">
-        
-        {/* API Key Warning */}
-        {!isConnected && (
-           <div className="bg-amber-600 text-white p-2 text-center text-sm font-bold flex justify-center gap-2 items-center cursor-pointer hover:bg-amber-700 transition-colors" onClick={() => setIsSettingsOpen(true)}>
-             <span className="flex items-center gap-2">⚠️ Gemini API Key missing. Click here to configure.</span>
-           </div>
-        )}
-
-        {activeExercise ? (
-          // --- Active Exercise View ---
-          <div className="flex-1 overflow-hidden relative">
-             <button 
-              onClick={() => setCurrentExerciseId(null)}
-              className="absolute top-6 left-6 z-10 bg-white/80 backdrop-blur border border-slate-200 px-3 py-1 rounded-md text-slate-600 hover:text-slate-900 text-sm font-medium transition-colors"
-             >
-               ← Back to Menu
-             </button>
-             <ExerciseCard 
-                exercise={activeExercise}
-                onUpdateStatus={handleUpdateStatus}
-                onNext={() => setCurrentExerciseId(null)}
-               evaluator={evaluateExercise}
-             />
+      <main className="ml-64 flex-1 flex flex-col h-screen overflow-hidden bg-slate-50">
+        {examSession ? (
+          <ExamView session={examSession} onQuestionSubmit={handleExamQuestionSubmit} onFinish={() => { setExercises(prev => [...prev, ...examSession.questions]); setExamSession(null); }} isLoadingNext={examLoading} />
+        ) : activeExercise ? (
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="bg-slate-50 border-b border-slate-200/60 px-8 py-3 flex items-center flex-shrink-0">
+              <button onClick={() => setCurrentExerciseId(null)} className="group flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-bold text-slate-500 uppercase tracking-wider transition-all hover:bg-slate-200/50 hover:text-slate-900">
+                <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-1" />
+                Back to Dashboard
+              </button>
+              <div className="h-4 w-px bg-slate-300 mx-4" />
+              <div className="text-[10px] font-medium text-slate-400 uppercase tracking-widest truncate">{activeExercise.category} / {activeExercise.topic || 'General Exercise'}</div>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <ExerciseCard 
+                exercise={activeExercise} 
+                onUpdateStatus={(id, status, code, fb) => setExercises(prev => prev.map(ex => ex.id === id ? { ...ex, status, userCode: code, feedback: fb } : ex))} 
+                onNext={() => handleGenerateNextAuto(activeExercise)} 
+                evaluator={(ex, code) => evaluateSubmission(ex, code)} 
+              />
+            </div>
           </div>
         ) : (
-          // --- Dashboard / Menu View ---
-          <div className="flex-1 overflow-y-auto p-12">
-            
-            <header className="mb-12">
-              <h1 className="text-3xl font-bold text-slate-900 mb-2">
-                {currentCategory === 'REVIEW' ? 'Review Mistakes' : currentCategory}
-              </h1>
-              <p className="text-slate-500 text-lg">
-                {currentCategory === 'REVIEW' 
-                  ? 'Revisit problems you struggled with to reinforce your learning.'
-                  : 'Generate specialized PySpark problems specifically for Trimble business contexts.'
-                }
-              </p>
+          <div className="flex-1 overflow-y-auto p-12 custom-scrollbar">
+            <header className="mb-10 flex justify-between items-start">
+              <div>
+                <h1 className="text-3xl font-bold text-slate-900 mb-2">{currentCategory === 'REVIEW' ? 'Review Center' : currentCategory}</h1>
+                <p className="text-slate-500 text-lg">{currentCategory === 'REVIEW' ? 'Fix your logic gaps.' : `Master ${currentCategory} with AI challenges.`}</p>
+              </div>
+              {currentCategory !== 'REVIEW' && (
+                <button onClick={handleStartExam} disabled={examLoading} className="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-800 shadow-xl transition-all">
+                  {examLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <GraduationCap className="w-5 h-5" />}
+                  Take 10-Question Exam
+                </button>
+              )}
             </header>
 
-            {currentCategory === 'REVIEW' ? (
-              // Review Mode List
-              <div className="space-y-4 max-w-4xl">
-                {reviewList.length === 0 ? (
-                  <div className="text-center py-20 bg-white rounded-2xl border border-slate-200 border-dashed">
-                    <Sparkles className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
-                    <h3 className="text-xl font-medium text-slate-800">No exercises needed for review!</h3>
-                    <p className="text-slate-500">Great job. Go practice new topics.</p>
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-10">
+              <div className="xl:col-span-5 bg-white p-8 rounded-2xl border shadow-sm space-y-8">
+                <h3 className="text-xl font-bold flex items-center gap-2"><Sparkles className="w-5 h-5 text-blue-500" /> Generator</h3>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 block">Difficulty</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {Object.values(Difficulty).map(d => (
+                      <button key={d} onClick={() => setDifficulty(d)} className={`py-2 rounded-lg text-xs font-bold border transition-all ${difficulty === d ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-500 border-slate-200'}`}>{d}</button>
+                    ))}
                   </div>
-                ) : (
-                  reviewList.map(ex => (
-                    <div key={ex.id} className="bg-white p-6 rounded-xl border border-red-100 shadow-sm flex justify-between items-center hover:shadow-md transition-shadow">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-xs font-bold text-slate-500 uppercase">{ex.category}</span>
-                          <span className="text-xs font-medium text-red-500 bg-red-50 px-2 py-0.5 rounded-full">Needs Review</span>
-                        </div>
-                        <h3 className="font-bold text-slate-800 text-lg">{ex.title}</h3>
-                        <p className="text-slate-500 text-sm line-clamp-1">{ex.description}</p>
-                      </div>
-                      <button 
-                        onClick={() => startReview(ex.id)}
-                        className="bg-red-50 text-red-600 px-4 py-2 rounded-lg font-medium hover:bg-red-100 transition-colors"
-                      >
-                        Retry
-                      </button>
+                </div>
+                {currentCategory === Category.POINT_CLOUD && (
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 block">Topic</label>
+                    <div className="space-y-1">
+                      {Object.values(PointCloudTopic).map(t => (
+                        <button key={t} onClick={() => setCurrentTopic(t)} className={`w-full text-left py-2 px-3 rounded text-xs transition-all flex justify-between items-center ${currentTopic === t ? 'bg-slate-900 text-white font-bold' : 'bg-slate-50 text-slate-600 border border-slate-100 hover:border-slate-300'}`}>{t} {currentTopic === t && <div className="w-1 h-1 bg-blue-400 rounded-full" />}</button>
+                      ))}
                     </div>
-                  ))
+                  </div>
                 )}
+                <button onClick={handleCreateExercise} disabled={loading} className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-500 disabled:bg-slate-300 transition-all flex justify-center items-center gap-2">
+                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <BookOpen className="w-5 h-5" />} Generate Challenge
+                </button>
               </div>
-            ) : (
-              // Generator Mode
-              <div className="max-w-xl">
-                 <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
-                    <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-                      <Sparkles className="w-5 h-5 text-blue-500" />
-                      New Session
-                    </h3>
 
-                    <div className="space-y-6">
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">Difficulty Level</label>
-                        <div className="grid grid-cols-3 gap-3">
-                          {Object.values(Difficulty).map(diff => (
-                            <button
-                              key={diff}
-                              onClick={() => setDifficulty(diff)}
-                              className={`py-2 px-4 rounded-lg text-sm font-medium border transition-all
-                                ${difficulty === diff 
-                                  ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105' 
-                                  : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300'
-                                }
-                              `}
-                            >
-                              {diff}
-                            </button>
-                          ))}
+              <div className="xl:col-span-7">
+                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6">Activity History</h4>
+                <div className="space-y-3">
+                  {exercises.filter(e => e.category === currentCategory).length === 0 ? (
+                    <div className="py-20 text-center text-slate-300 border border-dashed rounded-xl">No history found.</div>
+                  ) : (
+                    exercises.filter(e => e.category === currentCategory).reverse().slice(0, 10).map(ex => (
+                      <div key={ex.id} onClick={() => setCurrentExerciseId(ex.id)} className="p-4 bg-white rounded-xl border hover:border-blue-400 cursor-pointer transition-all flex items-center justify-between group shadow-sm">
+                        <div className="flex items-center gap-4">
+                          <div className={`w-2 h-2 rounded-full ${ex.status === ExerciseStatus.CORRECT ? 'bg-green-500' : ex.status === ExerciseStatus.REVIEW ? 'bg-red-500' : 'bg-slate-300'}`} />
+                          <div>
+                            <div className="text-[10px] text-slate-400 font-bold uppercase">{ex.topic || 'General'}</div>
+                            <div className="font-bold text-slate-800 group-hover:text-blue-600">{ex.title}</div>
+                          </div>
                         </div>
+                        <div className="text-right text-[10px] text-slate-400">{new Date(ex.timestamp).toLocaleDateString()}</div>
                       </div>
-
-                      <div className="pt-4">
-                        <button
-                          onClick={handleCreateExercise}
-                          disabled={loading}
-                          className={`w-full py-4 rounded-xl text-white font-bold text-lg shadow-lg shadow-blue-500/20 transition-all flex justify-center items-center gap-3
-                            ${loading ? 'bg-slate-400 cursor-not-allowed' : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 hover:shadow-xl hover:-translate-y-1'}
-                          `}
-                        >
-                          {loading ? (
-                            <>
-                              <Loader2 className="w-6 h-6 animate-spin" />
-                              Constructing Scenario...
-                            </>
-                          ) : (
-                            <>
-                              <BookOpen className="w-6 h-6" />
-                              Generate Exercise
-                            </>
-                          )}
-                        </button>
-                        {error && (
-                          <p className="mt-4 text-center text-red-500 text-sm">{error}</p>
-                        )}
-                      </div>
-                    </div>
-                 </div>
-
-                 {/* History of this session */}
-                 {exercises.filter(e => e.category === currentCategory).length > 0 && (
-                   <div className="mt-12">
-                     <h4 className="text-slate-500 font-semibold mb-4 uppercase text-xs tracking-wider">Previous Exercises ({currentCategory})</h4>
-                     <div className="space-y-3">
-                       {exercises.filter(e => e.category === currentCategory).reverse().map(ex => (
-                         <div key={ex.id} className="group flex items-center justify-between p-4 bg-white rounded-lg border border-slate-200 hover:border-blue-300 transition-colors cursor-pointer" onClick={() => startReview(ex.id)}>
-                            <div className="flex items-center gap-3">
-                              {ex.status === ExerciseStatus.CORRECT ? (
-                                <div className="w-2 h-2 rounded-full bg-green-500" />
-                              ) : ex.status === ExerciseStatus.REVIEW ? (
-                                <div className="w-2 h-2 rounded-full bg-red-500" />
-                              ) : (
-                                <div className="w-2 h-2 rounded-full bg-slate-300" />
-                              )}
-                              <span className="text-slate-700 font-medium">{ex.title}</span>
-                            </div>
-                            <span className="text-slate-400 text-xs">{new Date(ex.timestamp).toLocaleTimeString()}</span>
-                         </div>
-                       ))}
-                     </div>
-                   </div>
-                 )}
+                    ))
+                  )}
+                </div>
               </div>
-            )}
+            </div>
           </div>
         )}
       </main>
