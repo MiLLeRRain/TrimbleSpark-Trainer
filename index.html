@@ -7,17 +7,26 @@
     <title>TrimbleSpark Trainer</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <!-- 核心 CSS：通过 CDN 加载，确保 Monaco 布局和光标定位正常 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/editor/editor.main.css">
     <style>
       body {
         font-family: 'Inter', sans-serif;
+        background-color: #f8fafc; /* 显式设置 Slate-50 背景，防止白屏或黑屏感 */
+        margin: 0;
       }
-      code, pre, textarea.code-font {
+      code, pre, .code-font {
         font-family: 'Fira Code', monospace;
       }
-      /* Monaco fix for rounded corners */
-      .monaco-editor {
-        padding-top: 8px;
-        padding-bottom: 8px;
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 10px;
       }
     </style>
   <script type="importmap">
@@ -28,7 +37,8 @@
     "lucide-react": "https://esm.sh/lucide-react@^0.561.0",
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
     "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
-    "monaco-editor": "https://esm.sh/monaco-editor@0.52.2"
+    "monaco-editor": "https://esm.sh/monaco-editor@0.52.2",
+    "monaco-editor/": "https://esm.sh/monaco-editor@0.52.2/"
   }
 }
 </script>

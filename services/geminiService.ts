@@ -19,11 +19,22 @@ CRITICAL FORMATTING RULES:
 6. DO NOT use semicolons (;) to combine multiple lines into one.
 `;
 
+/**
+ * Handle platform specific key errors by notifying the UI
+ */
+const handleApiError = (e: any) => {
+  if (e?.message?.includes("Requested entity was not found")) {
+    window.dispatchEvent(new CustomEvent('aistudio:keyError'));
+  }
+  throw e;
+};
+
 export const generateExercise = async (
   category: Category,
   difficulty: Difficulty,
   topic?: string
 ): Promise<GeneratedExerciseResponse> => {
+  // Fresh instance to catch the most recent API key from selection dialog
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   let specificContext = "";
@@ -38,54 +49,64 @@ export const generateExercise = async (
   
   MANDATORY: The 'expectedOutputExample' MUST be a perfectly aligned ASCII table. Ensure all characters are spaced such that vertical columns match up exactly.`;
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: prompt,
-    config: {
-      systemInstruction: SYSTEM_INSTRUCTION,
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          title: { type: Type.STRING },
-          description: { type: Type.STRING },
-          inputSchema: { type: Type.STRING },
-          sampleData: { type: Type.STRING },
-          expectedOutputDescription: { type: Type.STRING },
-          expectedOutputExample: { type: Type.STRING },
-          standardSolution: { type: Type.STRING }
-        },
-        required: ["title", "description", "inputSchema", "sampleData", "expectedOutputDescription", "expectedOutputExample", "standardSolution"]
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: prompt,
+      config: {
+        systemInstruction: SYSTEM_INSTRUCTION,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            description: { type: Type.STRING },
+            inputSchema: { type: Type.STRING },
+            sampleData: { type: Type.STRING },
+            expectedOutputDescription: { type: Type.STRING },
+            expectedOutputExample: { type: Type.STRING },
+            standardSolution: { type: Type.STRING }
+          },
+          required: ["title", "description", "inputSchema", "sampleData", "expectedOutputDescription", "expectedOutputExample", "standardSolution"]
+        }
       }
-    }
-  });
+    });
 
-  if (response.text) return JSON.parse(response.text.trim()) as GeneratedExerciseResponse;
-  throw new Error("Empty response from AI");
+    if (response.text) return JSON.parse(response.text.trim()) as GeneratedExerciseResponse;
+    throw new Error("Empty response from AI");
+  } catch (e) {
+    return handleApiError(e);
+  }
 };
 
 export const evaluateSubmission = async (
   exercise: GeneratedExerciseResponse,
   userCode: string
 ): Promise<EvaluationResponse> => {
+  // Fresh instance to catch the most recent API key from selection dialog
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const prompt = `Review this PySpark code. Problem: ${exercise.description}. Solution: ${exercise.standardSolution}. User Code: ${userCode}`;
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-pro-preview',
-    contents: prompt,
-    config: {
-      systemInstruction: "You are a Senior Code Reviewer at Trimble. Respond ONLY in JSON.",
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          isCorrect: { type: Type.BOOLEAN },
-          feedback: { type: Type.STRING }
-        },
-        required: ["isCorrect", "feedback"]
+  
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-pro-preview',
+      contents: prompt,
+      config: {
+        systemInstruction: "You are a Senior Code Reviewer at Trimble. Respond ONLY in JSON.",
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            isCorrect: { type: Type.BOOLEAN },
+            feedback: { type: Type.STRING }
+          },
+          required: ["isCorrect", "feedback"]
+        }
       }
-    }
-  });
-  if (response.text) return JSON.parse(response.text.trim()) as EvaluationResponse;
-  return { isCorrect: false, feedback: "Evaluation failed." };
+    });
+    if (response.text) return JSON.parse(response.text.trim()) as EvaluationResponse;
+    return { isCorrect: false, feedback: "Evaluation failed." };
+  } catch (e) {
+    return handleApiError(e);
+  }
 };

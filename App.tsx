@@ -187,7 +187,9 @@ export default function App() {
               <div className="text-[10px] font-medium text-slate-400 uppercase tracking-widest truncate">{activeExercise.category} / {activeExercise.topic || 'General Exercise'}</div>
             </div>
             <div className="flex-1 overflow-hidden">
+              {/* CRITICAL: Use exercise.id as key to force remount of editor on exercise change */}
               <ExerciseCard 
+                key={activeExercise.id}
                 exercise={activeExercise} 
                 onUpdateStatus={(id, status, code, fb) => setExercises(prev => prev.map(ex => ex.id === id ? { ...ex, status, userCode: code, feedback: fb } : ex))} 
                 onNext={() => handleGenerateNextAuto(activeExercise)} 

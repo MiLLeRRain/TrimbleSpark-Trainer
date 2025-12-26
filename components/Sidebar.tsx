@@ -1,7 +1,7 @@
 
 import React, { useRef, useState, useEffect } from 'react';
 import { Category } from '../types';
-import { FolderOpen, AlertTriangle, BarChart2, Trash2, Download, Upload, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { FolderOpen, AlertTriangle, BarChart2, Trash2, Download, Upload, ShieldCheck, ShieldAlert, Key } from 'lucide-react';
 
 interface SidebarProps {
   currentCategory: Category | 'REVIEW';
@@ -11,6 +11,10 @@ interface SidebarProps {
   onExportData: () => void;
   onImportData: (file: File) => void;
 }
+
+// Fix: Removed redundant AIStudio interface and declare global block.
+// The environment provides these types globally, and redeclaring them with 
+// a local interface causes subsequent property declaration errors.
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
   currentCategory, 
@@ -25,9 +29,48 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [isKeyActive, setIsKeyActive] = useState(false);
 
   useEffect(() => {
-    // API key is strictly managed via environment variables per guidelines
-    setIsKeyActive(!!process.env.API_KEY);
+    const checkKeyStatus = async () => {
+      if (process.env.API_KEY) {
+        setIsKeyActive(true);
+        return;
+      }
+      
+      // Use type assertion to access pre-configured aistudio object safely
+      const aistudio = (window as any).aistudio;
+      if (aistudio) {
+        try {
+          const hasKey = await aistudio.hasSelectedApiKey();
+          setIsKeyActive(hasKey);
+        } catch (e) {
+          console.error("Failed to check API key status", e);
+        }
+      }
+    };
+    
+    checkKeyStatus();
+
+    // Listen for potential key-related errors from the AI service
+    const handleKeyError = () => {
+      setIsKeyActive(false);
+    };
+    window.addEventListener('aistudio:keyError', handleKeyError);
+    return () => window.removeEventListener('aistudio:keyError', handleKeyError);
   }, []);
+
+  const handleSelectKey = async () => {
+    const aistudio = (window as any).aistudio;
+    if (aistudio) {
+      try {
+        await aistudio.openSelectKey();
+        // Per instructions: assume the key selection was successful after triggering openSelectKey
+        setIsKeyActive(true);
+      } catch (e) {
+        console.error("Failed to open key selection dialog", e);
+      }
+    } else {
+      alert("API Key selection is only available in supported AI Studio frames. For local dev, please set process.env.API_KEY.");
+    }
+  };
 
   const handleReset = () => {
     if (window.confirm("Are you sure you want to delete all your history and progress?")) {
@@ -82,23 +125,46 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </nav>
 
-      {/* API Key Status - Read Only per strict security guidelines */}
+      {/* API Key Panel - Compliant with AI Studio Selection Logic */}
       <div className="mx-4 mb-4 p-4 bg-slate-800/50 border border-slate-700 rounded-xl space-y-3">
         <div className="flex items-center justify-between">
-          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Environment</span>
+          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Credentials</span>
           {isKeyActive ? (
             <span className="flex items-center gap-1 text-[10px] font-bold text-green-400 uppercase">
-              <ShieldCheck className="w-3 h-3" /> Ready
+              <ShieldCheck className="w-3 h-3" /> Active
             </span>
           ) : (
             <span className="flex items-center gap-1 text-[10px] font-bold text-amber-400 uppercase">
-              <ShieldAlert className="w-3 h-3" /> No Key
+              <ShieldAlert className="w-3 h-3" /> Setup Required
             </span>
           )}
         </div>
+        
+        {!isKeyActive && (
+          <button 
+            onClick={handleSelectKey}
+            className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-bold rounded-lg flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-900/40"
+          >
+            <Key className="w-3 h-3" /> Select API Key
+          </button>
+        )}
+        
         <p className="text-[9px] text-slate-500 leading-tight">
-          System using environment API key for secure processing.
+          {isKeyActive 
+            ? "Using secure environment credentials for AI features." 
+            : "A paid Google Cloud project API key is required to use AI features."}
         </p>
+        
+        {!isKeyActive && (
+          <a 
+            href="https://ai.google.dev/gemini-api/docs/billing" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="block text-[9px] text-blue-400 hover:underline text-center"
+          >
+            View Billing Setup
+          </a>
+        )}
       </div>
 
       <div className="p-4 border-t border-slate-800 space-y-1">
