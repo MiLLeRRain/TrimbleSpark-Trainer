@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import * as monaco from 'monaco-editor';
 import { setupMonacoPySpark } from '../services/monacoSetup';
@@ -22,8 +21,6 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, onUpdateSt
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // 初始化编辑器 - 仅在组件挂载时运行一次
-  // 由于 App.tsx 传递了 key={exercise.id}，切换题目会自动触发重新挂载
   useEffect(() => {
     setupMonacoPySpark();
     
@@ -42,20 +39,18 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, onUpdateSt
         lineNumbers: 'on',
         renderLineHighlight: 'all',
         wordWrap: 'on',
-        padding: { top: 16, bottom: 16 },
+        padding: { top: 0, bottom: 0 }, // 修复问题1：移除顶部空白
         autoClosingBrackets: 'always',
         autoClosingQuotes: 'always',
         tabSize: 4,
         fixedOverflowWidgets: true,
       });
 
-      // 快捷键支持
       editorRef.current.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyD, () => {
         editorRef.current?.trigger('keyboard', 'editor.action.copyLinesDownAction', null);
       });
 
-      // 确保初始布局正确
-      setTimeout(() => editorRef.current?.layout(), 50);
+      requestAnimationFrame(() => editorRef.current?.layout());
     }
 
     return () => {
@@ -64,12 +59,16 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, onUpdateSt
         editorRef.current = null;
       }
     };
-  }, []); // 依赖项为空，严格遵循 Key 值重载逻辑
+  }, []); 
 
-  // 仅监听全屏模式引起的布局变化
   useEffect(() => {
-    const timer = setTimeout(() => editorRef.current?.layout(), 250);
-    return () => clearTimeout(timer);
+    const handleResize = () => editorRef.current?.layout();
+    const timer = setTimeout(handleResize, 100);
+    const timer2 = setTimeout(handleResize, 500); 
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(timer2);
+    };
   }, [isMaximized]);
 
   const formattedSampleData = useMemo(() => {
@@ -146,16 +145,17 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, onUpdateSt
         )}
       </div>
 
-      <div className={`grid grid-cols-1 transition-all duration-500 ease-in-out flex-1 min-h-0 ${isMaximized ? 'lg:grid-cols-[0px_1fr]' : 'lg:grid-cols-[40%_1fr] gap-6'}`}>
-        <div className={`flex flex-col gap-5 overflow-y-auto pr-2 custom-scrollbar transition-all duration-500 ${isMaximized ? 'opacity-0 invisible pointer-events-none translate-x-[-20px]' : 'opacity-100 visible'}`}>
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+      {/* 修复问题2：显式添加 h-full 和 min-h-0 确保 grid 填充且子容器可触发滚动 */}
+      <div className={`grid grid-cols-1 transition-all duration-500 ease-in-out flex-1 min-h-0 h-full ${isMaximized ? 'lg:grid-cols-[0px_1fr]' : 'lg:grid-cols-[40%_1fr] gap-6'}`}>
+        <div className={`flex flex-col gap-5 overflow-y-auto pr-4 custom-scrollbar transition-all duration-500 ${isMaximized ? 'opacity-0 invisible pointer-events-none translate-x-[-20px]' : 'opacity-100 visible'}`}>
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex-shrink-0">
             <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
               <Terminal className="w-3.5 h-3.5" /> Scenario
             </h3>
             <p className="text-slate-700 leading-relaxed text-sm whitespace-pre-wrap">{exercise.description}</p>
           </div>
           
-          <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-4">
+          <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-4 flex-shrink-0">
             <div>
               <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
                 <Database className="w-3 h-3" /> Input Schema
@@ -175,7 +175,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, onUpdateSt
             </div>
           </div>
 
-          <div className="bg-indigo-50/50 p-5 rounded-2xl border border-indigo-100/50 space-y-3">
+          <div className="bg-indigo-50/50 p-5 rounded-2xl border border-indigo-100/50 space-y-3 flex-shrink-0 mb-4">
              <h3 className="text-xs font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2">
                <Target className="w-3.5 h-3.5" /> Goal
              </h3>
@@ -197,7 +197,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, onUpdateSt
           </div>
         </div>
 
-        <div className="flex flex-col gap-4 h-full min-w-0">
+        <div className="flex flex-col gap-4 h-full min-w-0 overflow-hidden">
           <div className="flex-1 flex flex-col relative rounded-2xl overflow-hidden border border-slate-300 shadow-sm bg-[#1e1e1e]">
             <div className="bg-[#252526] px-4 py-2 flex justify-between items-center text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-white/10 z-10">
               <div className="flex items-center gap-3">
@@ -212,8 +212,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, onUpdateSt
               </button>
             </div>
             
-            {/* Editor Container */}
-            <div ref={containerRef} className="flex-1 w-full overflow-hidden min-h-[400px]" />
+            <div ref={containerRef} className="flex-1 w-full overflow-hidden" />
 
             <div className="p-4 bg-[#252526] border-t border-white/10 flex justify-between items-center z-10">
               <button 
@@ -234,7 +233,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, onUpdateSt
           </div>
 
           {(localFeedback || showSolution) && (
-            <div className="p-6 rounded-2xl border animate-fade-in bg-white shadow-sm overflow-y-auto max-h-[300px] flex-shrink-0 custom-scrollbar">
+            <div className="p-6 rounded-2xl border animate-fade-in bg-white shadow-sm overflow-y-auto max-h-[250px] flex-shrink-0 custom-scrollbar">
               {localFeedback && (
                 <div className="mb-4">
                   <h3 className="font-bold flex items-center gap-2 mb-3">

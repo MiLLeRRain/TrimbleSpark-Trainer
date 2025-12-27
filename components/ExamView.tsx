@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import * as monaco from 'monaco-editor';
 import { setupMonacoPySpark } from '../services/monacoSetup';
@@ -36,7 +35,7 @@ export const ExamView: React.FC<ExamViewProps> = ({ session, onQuestionSubmit, o
         fontFamily: "'Fira Code', monospace",
         minimap: { enabled: false },
         scrollBeyondLastLine: false,
-        padding: { top: 16, bottom: 16 },
+        padding: { top: 0, bottom: 0 }, // Fix: Remove top padding
         autoClosingBrackets: 'always',
         tabSize: 4,
       });

@@ -38,15 +38,16 @@ export const setupMonacoPySpark = () => {
   if (isInitialized) return;
   isInitialized = true;
 
-  // Set up loader for workers
+  // 使用 CDN 加载 Worker 脚本，确保在 Vite 环境下稳定运行
   // @ts-ignore
   self.MonacoEnvironment = {
     getWorkerUrl: function (_moduleId: any, label: string) {
-      if (label === 'json') return 'https://esm.sh/monaco-editor@0.52.2/esm/vs/language/json/json.worker?worker';
-      if (label === 'css' || label === 'scss' || label === 'less') return 'https://esm.sh/monaco-editor@0.52.2/esm/vs/language/css/css.worker?worker';
-      if (label === 'html' || label === 'handlebars' || label === 'razor') return 'https://esm.sh/monaco-editor@0.52.2/esm/vs/language/html/html.worker?worker';
-      if (label === 'typescript' || label === 'javascript') return 'https://esm.sh/monaco-editor@0.52.2/esm/vs/language/typescript/ts.worker?worker';
-      return 'https://esm.sh/monaco-editor@0.52.2/esm/vs/editor/editor.worker?worker';
+      const baseUrl = 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs';
+      if (label === 'json') return `${baseUrl}/language/json/json.worker.js`;
+      if (label === 'css' || label === 'scss' || label === 'less') return `${baseUrl}/language/css/css.worker.js`;
+      if (label === 'html' || label === 'handlebars' || label === 'razor') return `${baseUrl}/language/html/html.worker.js`;
+      if (label === 'typescript' || label === 'javascript') return `${baseUrl}/language/typescript/ts.worker.js`;
+      return `${baseUrl}/editor/editor.worker.js`;
     }
   };
 
@@ -61,7 +62,6 @@ export const setupMonacoPySpark = () => {
       };
 
       const suggestions: monaco.languages.CompletionItem[] = [
-        // PySpark Functions (triggered after F.)
         ...PYSPARK_FUNCTIONS.map(f => ({
           label: f,
           kind: monaco.languages.CompletionItemKind.Function,
@@ -69,7 +69,6 @@ export const setupMonacoPySpark = () => {
           insertText: f,
           range
         })),
-        // DataFrame Methods (triggered after .)
         ...DATAFRAME_METHODS.map(m => ({
           label: m,
           kind: monaco.languages.CompletionItemKind.Method,
@@ -77,7 +76,6 @@ export const setupMonacoPySpark = () => {
           insertText: m,
           range
         })),
-        // Snippets
         ...SNIPPETS.map(s => ({
           label: s.label,
           kind: monaco.languages.CompletionItemKind.Snippet,
