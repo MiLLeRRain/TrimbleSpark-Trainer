@@ -1,7 +1,9 @@
 
 import React, { useRef, useState, useEffect } from 'react';
 import { Category } from '../types';
-import { FolderOpen, AlertTriangle, BarChart2, Trash2, Download, Upload, ShieldCheck, ShieldAlert, Key } from 'lucide-react';
+import { listAvailableModels } from '../services/geminiService';
+import { getSelectedModel, getStoredApiKeys, saveApiKeys, saveSelectedModel } from '../services/apiKeyStore';
+import { FolderOpen, AlertTriangle, BarChart2, Trash2, Download, Upload, ShieldCheck, ShieldAlert, Key, RefreshCw } from 'lucide-react';
 
 interface SidebarProps {
   currentCategory: Category | 'REVIEW';
@@ -27,49 +29,71 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const categories = Object.values(Category);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isKeyActive, setIsKeyActive] = useState(false);
+  const [apiKeysInput, setApiKeysInput] = useState("");
+  const [savedKeyCount, setSavedKeyCount] = useState(0);
+  const [models, setModels] = useState<string[]>([]);
+  const [selectedModel, setSelectedModelState] = useState("");
+  const [isLoadingModels, setIsLoadingModels] = useState(false);
+  const [modelError, setModelError] = useState<string | null>(null);
+  const [isKeyModalOpen, setIsKeyModalOpen] = useState(false);
+
+  const loadModels = async (preferredModel?: string | null) => {
+    setIsLoadingModels(true);
+    setModelError(null);
+    try {
+      const available = await listAvailableModels();
+      setModels(available);
+      const candidate = preferredModel || selectedModel;
+      if (!available.includes(candidate)) {
+        const nextModel = available[0] || "";
+        if (nextModel) {
+          setSelectedModelState(nextModel);
+          saveSelectedModel(nextModel);
+        }
+      } else if (candidate && candidate !== selectedModel) {
+        setSelectedModelState(candidate);
+      }
+    } catch (e) {
+      setModelError("Failed to load models.");
+    } finally {
+      setIsLoadingModels(false);
+    }
+  };
 
   useEffect(() => {
-    const checkKeyStatus = async () => {
-      if (process.env.API_KEY) {
-        setIsKeyActive(true);
-        return;
-      }
-      
-      // Use type assertion to access pre-configured aistudio object safely
-      const aistudio = (window as any).aistudio;
-      if (aistudio) {
-        try {
-          const hasKey = await aistudio.hasSelectedApiKey();
-          setIsKeyActive(hasKey);
-        } catch (e) {
-          console.error("Failed to check API key status", e);
-        }
-      }
-    };
-    
-    checkKeyStatus();
+    const storedKeys = getStoredApiKeys();
+    setSavedKeyCount(storedKeys.length);
+    setIsKeyActive(storedKeys.length > 0);
+    setApiKeysInput("");
 
-    // Listen for potential key-related errors from the AI service
+    const storedModel = getSelectedModel();
+    if (storedModel) setSelectedModelState(storedModel);
+
+    loadModels(storedModel);
+
     const handleKeyError = () => {
       setIsKeyActive(false);
     };
-    window.addEventListener('aistudio:keyError', handleKeyError);
-    return () => window.removeEventListener('aistudio:keyError', handleKeyError);
+    window.addEventListener('gemini:keyError', handleKeyError);
+    return () => window.removeEventListener('gemini:keyError', handleKeyError);
   }, []);
 
-  const handleSelectKey = async () => {
-    const aistudio = (window as any).aistudio;
-    if (aistudio) {
-      try {
-        await aistudio.openSelectKey();
-        // Per instructions: assume the key selection was successful after triggering openSelectKey
-        setIsKeyActive(true);
-      } catch (e) {
-        console.error("Failed to open key selection dialog", e);
-      }
-    } else {
-      alert("API Key selection is only available in supported AI Studio frames. For local dev, please set process.env.API_KEY.");
-    }
+  const handleSaveKeys = () => {
+    const keys = apiKeysInput
+      .split(/[\n,]+/g)
+      .map((key) => key.trim())
+      .filter((key) => key.length > 0);
+    saveApiKeys(keys);
+    setSavedKeyCount(keys.length);
+    setIsKeyActive(keys.length > 0);
+    setApiKeysInput("");
+    setIsKeyModalOpen(false);
+    loadModels();
+  };
+
+  const handleModelChange = (model: string) => {
+    setSelectedModelState(model);
+    saveSelectedModel(model);
   };
 
   const handleReset = () => {
@@ -125,7 +149,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </nav>
 
-      {/* API Key Panel - Compliant with AI Studio Selection Logic */}
       <div className="mx-4 mb-4 p-4 bg-slate-800/50 border border-slate-700 rounded-xl space-y-3">
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Credentials</span>
@@ -139,33 +162,102 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </span>
           )}
         </div>
-        
-        {!isKeyActive && (
-          <button 
-            onClick={handleSelectKey}
-            className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-bold rounded-lg flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-900/40"
+
+        <div className="space-y-2">
+          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Gemini API Keys</label>
+          <div className="flex items-center justify-between text-[11px] text-slate-400">
+            <span>{savedKeyCount > 0 ? `${savedKeyCount} saved` : "None saved"}</span>
+            <button
+              onClick={() => setIsKeyModalOpen(true)}
+              className="text-blue-400 hover:underline"
+            >
+              {savedKeyCount > 0 ? "Update" : "Add"}
+            </button>
+          </div>
+          <input
+            type="password"
+            value={savedKeyCount > 0 ? "saved" : ""}
+            readOnly
+            placeholder="No keys saved"
+            className="w-full rounded-lg bg-slate-900/60 text-slate-500 text-[11px] p-2 border border-slate-700"
+          />
+          <p className="text-[9px] text-slate-500 leading-tight">
+            Keys are stored locally and rotated on each request.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Model</label>
+            <button
+              onClick={loadModels}
+              className="text-[9px] text-blue-400 hover:underline flex items-center gap-1"
+            >
+              <RefreshCw className={`w-3 h-3 ${isLoadingModels ? "animate-spin" : ""}`} />
+              Refresh
+            </button>
+          </div>
+          <select
+            value={selectedModel}
+            onChange={(e) => handleModelChange(e.target.value)}
+            className="w-full rounded-lg bg-slate-900/60 text-slate-200 text-[11px] p-2 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-600"
           >
-            <Key className="w-3 h-3" /> Select API Key
-          </button>
-        )}
-        
-        <p className="text-[9px] text-slate-500 leading-tight">
-          {isKeyActive 
-            ? "Using secure environment credentials for AI features." 
-            : "A paid Google Cloud project API key is required to use AI features."}
-        </p>
-        
-        {!isKeyActive && (
-          <a 
-            href="https://ai.google.dev/gemini-api/docs/billing" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="block text-[9px] text-blue-400 hover:underline text-center"
-          >
-            View Billing Setup
-          </a>
-        )}
+            {models.map((model) => (
+              <option key={model} value={model}>
+                {model}
+              </option>
+            ))}
+          </select>
+          {modelError && (
+            <div className="text-[9px] text-amber-400">{modelError}</div>
+          )}
+        </div>
       </div>
+
+      {isKeyModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-slate-900 border border-slate-700 shadow-2xl">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700">
+              <h3 className="text-sm font-bold text-slate-200">Add Gemini API Keys</h3>
+              <button
+                onClick={() => setIsKeyModalOpen(false)}
+                className="text-slate-400 hover:text-slate-200 text-sm"
+              >
+                Close
+              </button>
+            </div>
+            <div className="p-5 space-y-3">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                One key per line
+              </label>
+              <textarea
+                value={apiKeysInput}
+                onChange={(e) => setApiKeysInput(e.target.value)}
+                placeholder="Paste one or more keys"
+                rows={6}
+                className="w-full resize-none rounded-lg bg-slate-950 text-slate-200 text-[12px] p-3 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-600"
+              />
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => setIsKeyModalOpen(false)}
+                  className="px-4 py-2 text-[11px] font-bold text-slate-300 hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveKeys}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-bold rounded-lg flex items-center gap-2"
+                >
+                  <Key className="w-3 h-3" /> Save Keys
+                </button>
+              </div>
+              <p className="text-[9px] text-slate-500">
+                Keys never leave your browser and are stored in localStorage.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="p-4 border-t border-slate-800 space-y-1">
         <button onClick={onExportData} className="w-full flex items-center gap-3 px-3 py-2 text-xs text-slate-400 hover:text-blue-400 hover:bg-slate-800 rounded-lg transition-colors group">

@@ -1,6 +1,14 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 import { Category, Difficulty, EvaluationResponse, GeneratedExerciseResponse, PointCloudTopic } from "../types";
+import { getAnyApiKey, getNextApiKey, getSelectedModel } from "./apiKeyStore";
+
+const DEFAULT_MODELS = [
+  "gemini-3-flash-preview",
+  "gemini-3-pro-preview",
+  "gemini-1.5-flash",
+  "gemini-1.5-pro"
+];
 
 const SYSTEM_INSTRUCTION = `
 You are a Senior Data Engineer at Trimble Inc. and a PySpark expert. 
@@ -23,10 +31,43 @@ CRITICAL FORMATTING RULES:
  * Handle platform specific key errors by notifying the UI
  */
 const handleApiError = (e: any) => {
-  if (e?.message?.includes("Requested entity was not found")) {
-    window.dispatchEvent(new CustomEvent('aistudio:keyError'));
+  if (
+    e?.message?.includes("Requested entity was not found") ||
+    e?.message?.includes("Missing Gemini API key")
+  ) {
+    window.dispatchEvent(new CustomEvent("gemini:keyError"));
   }
   throw e;
+};
+
+const resolveApiKey = () => {
+  const key = getNextApiKey() || (import.meta as any)?.env?.VITE_GEMINI_API_KEY;
+  if (!key) {
+    throw new Error("Missing Gemini API key. Add one in the sidebar.");
+  }
+  return key;
+};
+
+const resolveModel = () => getSelectedModel() || DEFAULT_MODELS[0];
+
+const normalizeModelName = (name: string) => name.replace(/^models\//, "");
+
+export const listAvailableModels = async (): Promise<string[]> => {
+  const apiKey = getAnyApiKey() || (import.meta as any)?.env?.VITE_GEMINI_API_KEY;
+  if (!apiKey) return DEFAULT_MODELS;
+
+  try {
+    const ai = new GoogleGenAI({ apiKey });
+    const pager = await ai.models.list({ config: { pageSize: 100 } });
+    const models = pager.page
+      .map((model) => (model.name ? normalizeModelName(model.name) : ""))
+      .filter((name) => name.length > 0);
+
+    const unique = Array.from(new Set(models));
+    return unique.length > 0 ? unique : DEFAULT_MODELS;
+  } catch {
+    return DEFAULT_MODELS;
+  }
 };
 
 export const generateExercise = async (
@@ -34,8 +75,7 @@ export const generateExercise = async (
   difficulty: Difficulty,
   topic?: string
 ): Promise<GeneratedExerciseResponse> => {
-  // Fresh instance to catch the most recent API key from selection dialog
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey: resolveApiKey() });
   
   let specificContext = "";
   if (category === Category.POINT_CLOUD) {
@@ -51,7 +91,7 @@ export const generateExercise = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: resolveModel(),
       contents: prompt,
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
@@ -83,13 +123,12 @@ export const evaluateSubmission = async (
   exercise: GeneratedExerciseResponse,
   userCode: string
 ): Promise<EvaluationResponse> => {
-  // Fresh instance to catch the most recent API key from selection dialog
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey: resolveApiKey() });
   const prompt = `Review this PySpark code. Problem: ${exercise.description}. Solution: ${exercise.standardSolution}. User Code: ${userCode}`;
   
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: resolveModel(),
       contents: prompt,
       config: {
         systemInstruction: "You are a Senior Code Reviewer at Trimble. Respond ONLY in JSON.",
