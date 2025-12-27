@@ -25,7 +25,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({ exercise, onUpdateSt
     setupMonacoPySpark();
     
     if (containerRef.current && !editorRef.current) {
-      const initialValue = exercise.userCode || "from pyspark.sql import SparkSession\nfrom pyspark.sql.functions import *\n\n# Write your code here to transform 'df'\nresult_df = ";
+      const initialValue = exercise.userCode || "from pyspark.sql import SparkSession\nfrom pyspark.sql.functions import *\n\n# Write your code here to transform 'df'\ndef solution (df): \n    # Your logic here\n    return result\n";
 
       editorRef.current = monaco.editor.create(containerRef.current, {
         value: initialValue,

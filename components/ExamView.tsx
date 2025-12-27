@@ -27,7 +27,7 @@ export const ExamView: React.FC<ExamViewProps> = ({ session, onQuestionSubmit, o
   useEffect(() => {
     if (containerRef.current && !editorRef.current) {
       editorRef.current = monaco.editor.create(containerRef.current, {
-        value: "from pyspark.sql import functions as F\n\n# Your logic here\nresult_df = ",
+        value: "from pyspark.sql import SparkSession\nfrom pyspark.sql.functions import *\n\n# Write your code here to transform 'df'\ndef solution (df): \n    # Your logic here\n    return result\n",
         language: 'python',
         theme: 'vs-dark',
         automaticLayout: true,
@@ -56,7 +56,7 @@ export const ExamView: React.FC<ExamViewProps> = ({ session, onQuestionSubmit, o
     }
 
     if (editorRef.current) {
-      editorRef.current.setValue("from pyspark.sql import functions as F\n\n# Your logic here\nresult_df = ");
+      editorRef.current.setValue("from pyspark.sql import SparkSession\nfrom pyspark.sql.functions import *\n\n# Write your code here to transform 'df'\ndef solution (df): \n    # Your logic here\n    return result\n");
     }
   }, [session.currentIndex]);
 

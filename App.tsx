@@ -7,7 +7,7 @@ import { ExamView } from './components/ExamView';
 import { Category, Difficulty, Exercise, ExerciseStatus, PointCloudTopic, ExamSession } from './types';
 import { generateExercise, evaluateSubmission } from './services/geminiService';
 import { storageService } from './services/storage';
-import { Sparkles, Loader2, BookOpen, GraduationCap, ArrowLeft } from 'lucide-react';
+import { Sparkles, Loader2, BookOpen, GraduationCap, ArrowLeft, AlertCircle, History, PlayCircle } from 'lucide-react';
 
 export default function App() {
   const [currentCategory, setCurrentCategory] = useState<Category | 'REVIEW'>(Category.POINT_CLOUD);
@@ -199,7 +199,7 @@ export default function App() {
             <div className="bg-slate-50 border-b border-slate-200/60 px-8 py-3 flex items-center flex-shrink-0">
               <button onClick={() => setCurrentExerciseId(null)} className="group flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-bold text-slate-500 uppercase tracking-wider transition-all hover:bg-slate-200/50 hover:text-slate-900">
                 <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-1" />
-                Back to Dashboard
+                Back to {currentCategory === 'REVIEW' ? 'Review Center' : 'Dashboard'}
               </button>
               <div className="h-4 w-px bg-slate-300 mx-4" />
               <div className="text-[10px] font-medium text-slate-400 uppercase tracking-widest truncate">{activeExercise.category} / {activeExercise.topic || 'General Exercise'}</div>
@@ -218,9 +218,15 @@ export default function App() {
         ) : (
           <div className="flex-1 overflow-y-auto p-12 custom-scrollbar">
             <header className="mb-10 flex justify-between items-start">
-              <div>
-                <h1 className="text-3xl font-bold text-slate-900 mb-2">{currentCategory === 'REVIEW' ? 'Review Center' : currentCategory}</h1>
-                <p className="text-slate-500 text-lg">{currentCategory === 'REVIEW' ? 'Fix your logic gaps.' : `Master ${currentCategory} with AI challenges.`}</p>
+              <div className="animate-fade-in">
+                <h1 className="text-3xl font-bold text-slate-900 mb-2">
+                  {currentCategory === 'REVIEW' ? 'Review Center' : currentCategory}
+                </h1>
+                <p className="text-slate-500 text-lg">
+                  {currentCategory === 'REVIEW' 
+                    ? `You have ${reviewList.length} topics that need correction.` 
+                    : `Master ${currentCategory} with AI challenges.`}
+                </p>
               </div>
               {currentCategory !== 'REVIEW' && (
                 <button onClick={handleStartExam} disabled={examLoading} className="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-800 shadow-xl transition-all">
@@ -230,54 +236,102 @@ export default function App() {
               )}
             </header>
 
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-10">
-              <div className="xl:col-span-5 bg-white p-8 rounded-2xl border shadow-sm space-y-8">
-                <h3 className="text-xl font-bold flex items-center gap-2"><Sparkles className="w-5 h-5 text-blue-500" /> Generator</h3>
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 block">Difficulty</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {Object.values(Difficulty).map(d => (
-                      <button key={d} onClick={() => setDifficulty(d)} className={`py-2 rounded-lg text-xs font-bold border transition-all ${difficulty === d ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-500 border-slate-200'}`}>{d}</button>
+            {currentCategory === 'REVIEW' ? (
+              <div className="space-y-6 animate-fade-in">
+                <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">
+                  <AlertCircle className="w-4 h-4 text-red-500" /> Pending Corrections
+                </div>
+                {reviewList.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-32 border-2 border-dashed border-slate-200 rounded-3xl bg-white/50">
+                    <div className="w-16 h-16 bg-green-50 text-green-500 rounded-full flex items-center justify-center mb-4">
+                      <Sparkles className="w-8 h-8" />
+                    </div>
+                    <h3 className="text-xl font-bold text-slate-800">Clean Slate!</h3>
+                    <p className="text-slate-500">You've mastered all recent challenges. No mistakes found.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
+                    {reviewList.map(ex => (
+                      <div 
+                        key={ex.id} 
+                        onClick={() => setCurrentExerciseId(ex.id)}
+                        className="group bg-white p-6 rounded-2xl border border-slate-200 hover:border-red-400 cursor-pointer transition-all hover:shadow-xl hover:shadow-red-500/5 flex flex-col gap-4"
+                      >
+                        <div className="flex justify-between items-start">
+                          <span className="px-2 py-0.5 bg-red-50 text-red-600 text-[10px] font-bold rounded uppercase">
+                            {ex.difficulty}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-medium">
+                            {new Date(ex.timestamp).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-slate-900 group-hover:text-red-600 transition-colors mb-1 truncate">{ex.title}</h4>
+                          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{ex.category}</p>
+                        </div>
+                        <div className="mt-2 pt-4 border-t border-slate-50 flex items-center justify-between">
+                           <span className="text-xs text-slate-400 flex items-center gap-1.5 italic">
+                             <History className="w-3.5 h-3.5" /> 1 attempt failed
+                           </span>
+                           <div className="flex items-center gap-1.5 text-blue-600 font-bold text-xs">
+                             Fix Now <PlayCircle className="w-4 h-4" />
+                           </div>
+                        </div>
+                      </div>
                     ))}
                   </div>
-                </div>
-                {currentCategory === Category.POINT_CLOUD && (
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 xl:grid-cols-12 gap-10">
+                <div className="xl:col-span-5 bg-white p-8 rounded-2xl border shadow-sm space-y-8">
+                  <h3 className="text-xl font-bold flex items-center gap-2"><Sparkles className="w-5 h-5 text-blue-500" /> Generator</h3>
                   <div>
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 block">Topic</label>
-                    <div className="space-y-1">
-                      {Object.values(PointCloudTopic).map(t => (
-                        <button key={t} onClick={() => setCurrentTopic(t)} className={`w-full text-left py-2 px-3 rounded text-xs transition-all flex justify-between items-center ${currentTopic === t ? 'bg-slate-900 text-white font-bold' : 'bg-slate-50 text-slate-600 border border-slate-100 hover:border-slate-300'}`}>{t} {currentTopic === t && <div className="w-1 h-1 bg-blue-400 rounded-full" />}</button>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 block">Difficulty</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {Object.values(Difficulty).map(d => (
+                        <button key={d} onClick={() => setDifficulty(d)} className={`py-2 rounded-lg text-xs font-bold border transition-all ${difficulty === d ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-500 border-slate-200'}`}>{d}</button>
                       ))}
                     </div>
                   </div>
-                )}
-                <button onClick={handleCreateExercise} disabled={loading} className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-500 disabled:bg-slate-300 transition-all flex justify-center items-center gap-2">
-                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <BookOpen className="w-5 h-5" />} Generate Challenge
-                </button>
-              </div>
-
-              <div className="xl:col-span-7">
-                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6">Activity History</h4>
-                <div className="space-y-3">
-                  {exercises.filter(e => e.category === currentCategory).length === 0 ? (
-                    <div className="py-20 text-center text-slate-300 border border-dashed rounded-xl">No history found.</div>
-                  ) : (
-                    exercises.filter(e => e.category === currentCategory).reverse().slice(0, 10).map(ex => (
-                      <div key={ex.id} onClick={() => setCurrentExerciseId(ex.id)} className="p-4 bg-white rounded-xl border hover:border-blue-400 cursor-pointer transition-all flex items-center justify-between group shadow-sm">
-                        <div className="flex items-center gap-4">
-                          <div className={`w-2 h-2 rounded-full ${ex.status === ExerciseStatus.CORRECT ? 'bg-green-500' : ex.status === ExerciseStatus.REVIEW ? 'bg-red-500' : 'bg-slate-300'}`} />
-                          <div>
-                            <div className="text-[10px] text-slate-400 font-bold uppercase">{ex.topic || 'General'}</div>
-                            <div className="font-bold text-slate-800 group-hover:text-blue-600">{ex.title}</div>
-                          </div>
-                        </div>
-                        <div className="text-right text-[10px] text-slate-400">{new Date(ex.timestamp).toLocaleDateString()}</div>
+                  {currentCategory === Category.POINT_CLOUD && (
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 block">Topic</label>
+                      <div className="space-y-1">
+                        {Object.values(PointCloudTopic).map(t => (
+                          <button key={t} onClick={() => setCurrentTopic(t)} className={`w-full text-left py-2 px-3 rounded text-xs transition-all flex justify-between items-center ${currentTopic === t ? 'bg-slate-900 text-white font-bold' : 'bg-slate-50 text-slate-600 border border-slate-100 hover:border-slate-300'}`}>{t} {currentTopic === t && <div className="w-1 h-1 bg-blue-400 rounded-full" />}</button>
+                        ))}
                       </div>
-                    ))
+                    </div>
                   )}
+                  <button onClick={handleCreateExercise} disabled={loading} className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-500 disabled:bg-slate-300 transition-all flex justify-center items-center gap-2">
+                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <BookOpen className="w-5 h-5" />} Generate Challenge
+                  </button>
+                </div>
+
+                <div className="xl:col-span-7">
+                  <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6">Activity History</h4>
+                  <div className="space-y-3">
+                    {exercises.filter(e => e.category === currentCategory).length === 0 ? (
+                      <div className="py-20 text-center text-slate-300 border border-dashed rounded-xl">No history found.</div>
+                    ) : (
+                      exercises.filter(e => e.category === currentCategory).reverse().slice(0, 10).map(ex => (
+                        <div key={ex.id} onClick={() => setCurrentExerciseId(ex.id)} className="p-4 bg-white rounded-xl border hover:border-blue-400 cursor-pointer transition-all flex items-center justify-between group shadow-sm">
+                          <div className="flex items-center gap-4">
+                            <div className={`w-2 h-2 rounded-full ${ex.status === ExerciseStatus.CORRECT ? 'bg-green-500' : ex.status === ExerciseStatus.REVIEW ? 'bg-red-500' : 'bg-slate-300'}`} />
+                            <div>
+                              <div className="text-[10px] text-slate-400 font-bold uppercase">{ex.topic || 'General'}</div>
+                              <div className="font-bold text-slate-800 group-hover:text-blue-600">{ex.title}</div>
+                            </div>
+                          </div>
+                          <div className="text-right text-[10px] text-slate-400">{new Date(ex.timestamp).toLocaleDateString()}</div>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         )}
       </main>
