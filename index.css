@@ -1,4 +1,14 @@
-/* Global styles placeholder. Cloudflare Pages expects this file because index.html links to it. */
-body {
-  margin: 0;
+/* 确保布局容器在极端情况下不溢出 */
+#root {
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+/* 再次加固 Monaco IME 隐藏 */
+.monaco-editor .ime-text-area {
+    visibility: hidden !important;
+    display: block !important;
+    width: 0 !important;
+    height: 0 !important;
 }

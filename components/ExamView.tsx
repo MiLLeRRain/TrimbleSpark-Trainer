@@ -35,7 +35,7 @@ export const ExamView: React.FC<ExamViewProps> = ({ session, onQuestionSubmit, o
         fontFamily: "'Fira Code', monospace",
         minimap: { enabled: false },
         scrollBeyondLastLine: false,
-        padding: { top: 0, bottom: 0 }, // Fix: Remove top padding
+        padding: { top: 0, bottom: 0 }, // 彻底移除 padding
         autoClosingBrackets: 'always',
         tabSize: 4,
       });
