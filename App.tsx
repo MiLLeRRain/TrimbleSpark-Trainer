@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { ExerciseCard } from './components/ExerciseCard';
+import { SandboxView } from './components/SandboxView';
 import { ExamView } from './components/ExamView';
 import { Category, Difficulty, Exercise, ExerciseStatus, PointCloudTopic, ExamSession } from './types';
 import { generateExercise, evaluateSubmission } from './services/geminiService';
@@ -16,6 +17,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [difficulty, setDifficulty] = useState<Difficulty>(Difficulty.BEGINNER);
   const [isStorageLoaded, setIsStorageLoaded] = useState(false);
+  const [isSandboxOpen, setIsSandboxOpen] = useState(false);
   
   const [examSession, setExamSession] = useState<ExamSession | null>(null);
   const [examLoading, setExamLoading] = useState(false);
@@ -152,7 +154,9 @@ export default function App() {
     <div className="flex min-h-screen bg-slate-50">
       <Sidebar 
         currentCategory={currentCategory} 
-        onSelectCategory={(cat) => { setCurrentCategory(cat); setExamSession(null); setCurrentExerciseId(null); }}
+        isSandboxOpen={isSandboxOpen}
+        onSelectCategory={(cat) => { setCurrentCategory(cat); setExamSession(null); setCurrentExerciseId(null); setIsSandboxOpen(false); }}
+        onOpenSandbox={() => setIsSandboxOpen(true)}
         reviewCount={reviewList.length}
         onResetData={() => { storageService.clear(); setExercises([]); setCurrentExerciseId(null); setExamSession(null); }}
         onExportData={() => {
@@ -174,7 +178,21 @@ export default function App() {
       />
 
       <main className="ml-64 flex-1 flex flex-col h-screen overflow-hidden bg-slate-50">
-        {examSession ? (
+        {isSandboxOpen ? (
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="bg-slate-50 border-b border-slate-200/60 px-8 py-3 flex items-center flex-shrink-0">
+              <button onClick={() => setIsSandboxOpen(false)} className="group flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-bold text-slate-500 uppercase tracking-wider transition-all hover:bg-slate-200/50 hover:text-slate-900">
+                <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-1" />
+                Back
+              </button>
+              <div className="h-4 w-px bg-slate-300 mx-4" />
+              <div className="text-[10px] font-medium text-slate-400 uppercase tracking-widest truncate">Sandbox</div>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <SandboxView />
+            </div>
+          </div>
+        ) : examSession ? (
           <ExamView session={examSession} onQuestionSubmit={handleExamQuestionSubmit} onFinish={() => { setExercises(prev => [...prev, ...examSession.questions]); setExamSession(null); }} isLoadingNext={examLoading} />
         ) : activeExercise ? (
           <div className="flex-1 flex flex-col min-h-0">

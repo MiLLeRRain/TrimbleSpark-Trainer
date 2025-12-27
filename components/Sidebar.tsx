@@ -3,11 +3,13 @@ import React, { useRef, useState, useEffect } from 'react';
 import { Category } from '../types';
 import { listAvailableModels } from '../services/geminiService';
 import { getSelectedModel, getStoredApiKeys, saveApiKeys, saveSelectedModel } from '../services/apiKeyStore';
-import { FolderOpen, AlertTriangle, BarChart2, Trash2, Download, Upload, ShieldCheck, ShieldAlert, Key, RefreshCw } from 'lucide-react';
+import { FolderOpen, AlertTriangle, BarChart2, Trash2, Download, Upload, ShieldCheck, ShieldAlert, Key, RefreshCw, Code } from 'lucide-react';
 
 interface SidebarProps {
   currentCategory: Category | 'REVIEW';
+  isSandboxOpen: boolean;
   onSelectCategory: (cat: Category | 'REVIEW') => void;
+  onOpenSandbox: () => void;
   reviewCount: number;
   onResetData: () => void;
   onExportData: () => void;
@@ -20,7 +22,9 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
   currentCategory, 
+  isSandboxOpen,
   onSelectCategory, 
+  onOpenSandbox,
   reviewCount, 
   onResetData,
   onExportData,
@@ -145,6 +149,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <span className="truncate">Review Mistakes</span>
             </div>
             {reviewCount > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-red-500 text-white">{reviewCount}</span>}
+          </button>
+        </div>
+
+        <div className="mt-4">
+          <button
+            onClick={onOpenSandbox}
+            className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-all flex items-center gap-3 group
+              ${isSandboxOpen 
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-900/20' 
+                : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+              }`}
+          >
+            <Code className={`w-4 h-4 ${isSandboxOpen ? 'text-white' : 'text-slate-500 group-hover:text-indigo-400'}`} />
+            <span className="truncate flex-1">Sandbox Editor</span>
           </button>
         </div>
       </nav>
