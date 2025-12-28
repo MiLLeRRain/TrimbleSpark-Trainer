@@ -3,8 +3,7 @@ import * as monaco from 'monaco-editor';
 import { setupMonacoPySpark } from '../services/monacoSetup';
 import { RotateCcw } from 'lucide-react';
 
-const DEFAULT_CODE = `from pyspark.sql import SparkSession
-from pyspark.sql.functions import *
+const DEFAULT_CODE = `from pyspark.sql import functions as F
 
 # Sandbox playground
 # Load your data into "df" and transform it as needed.
