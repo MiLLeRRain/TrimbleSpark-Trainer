@@ -21,6 +21,7 @@ export enum PointCloudTopic {
   VOLUMETRICS = 'Volumetrics (Cut-and-Fill)',
   FEATURE = 'Feature Extraction (Primitive Fitting)',
   CHANGE_DETECTION = 'Multi-scan Change Detection',
+  NORMALIZATION = 'Coordinate Normalization (Shift/Scale)',
   MIXED = 'Mixed Point Cloud Topics'
 }
 

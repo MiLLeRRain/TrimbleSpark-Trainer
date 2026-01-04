@@ -80,8 +80,9 @@ export const generateExercise = async (
   let specificContext = "";
   if (category === Category.POINT_CLOUD) {
     specificContext = `Focus on LiDAR processing for Construction. Schema: (x, y, z, intensity, classification).`;
-    if (topic && topic !== PointCloudTopic.MIXED) {
-      specificContext += ` MANDATORY TOPIC: "${topic}".`;
+    if (topic) {
+      if (topic === PointCloudTopic.NORMALIZATION) specificContext += ` MANDATORY: Focus on handling large coordinates (UTM) by shifting to local origin or scaling to avoid floating point precision issues.`;
+      else if (topic !== PointCloudTopic.MIXED) specificContext += ` MANDATORY TOPIC: "${topic}".`;
     }
   } else if (category === Category.GEOSPATIAL) {
     specificContext = `Focus on Geospatial data analysis (lat/lon, wkt, zones).`;
