@@ -24,6 +24,14 @@ export enum PointCloudTopic {
   MIXED = 'Mixed Point Cloud Topics'
 }
 
+export enum GeospatialTopic {
+  WINDOW = 'Window Functions (Over/PartitionBy)',
+  JOIN = 'Joins & Spatial Relations',
+  BROADCAST = 'Broadcast Joins (Optimization)',
+  UDF = 'UDFs for Geometry Processing',
+  MIXED = 'Mixed Geospatial Topics'
+}
+
 export enum ExerciseStatus {
   NEW = 'NEW',
   CORRECT = 'CORRECT',

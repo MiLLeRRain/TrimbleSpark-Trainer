@@ -4,14 +4,14 @@ import { Sidebar } from './components/Sidebar';
 import { ExerciseCard } from './components/ExerciseCard';
 import { SandboxView } from './components/SandboxView';
 import { ExamView } from './components/ExamView';
-import { Category, Difficulty, Exercise, ExerciseStatus, PointCloudTopic, ExamSession } from './types';
+import { Category, Difficulty, Exercise, ExerciseStatus, PointCloudTopic, GeospatialTopic, ExamSession } from './types';
 import { generateExercise, evaluateSubmission } from './services/geminiService';
 import { storageService } from './services/storage';
 import { Sparkles, Loader2, BookOpen, GraduationCap, ArrowLeft, AlertCircle, History, PlayCircle } from 'lucide-react';
 
 export default function App() {
   const [currentCategory, setCurrentCategory] = useState<Category | 'REVIEW'>(Category.POINT_CLOUD);
-  const [currentTopic, setCurrentTopic] = useState<PointCloudTopic>(PointCloudTopic.MIXED);
+  const [currentTopic, setCurrentTopic] = useState<string>(PointCloudTopic.MIXED);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [currentExerciseId, setCurrentExerciseId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -36,7 +36,7 @@ export default function App() {
     if (currentCategory === 'REVIEW') return;
     setLoading(true);
     try {
-      const topicToUse = currentCategory === Category.POINT_CLOUD ? currentTopic : undefined;
+      const topicToUse = (currentCategory === Category.POINT_CLOUD || currentCategory === Category.GEOSPATIAL) ? currentTopic : undefined;
       const generated = await generateExercise(currentCategory, difficulty, topicToUse);
       const newEx: Exercise = {
         id: crypto.randomUUID(),
@@ -155,7 +155,14 @@ export default function App() {
       <Sidebar 
         currentCategory={currentCategory} 
         isSandboxOpen={isSandboxOpen}
-        onSelectCategory={(cat) => { setCurrentCategory(cat); setExamSession(null); setCurrentExerciseId(null); setIsSandboxOpen(false); }}
+        onSelectCategory={(cat) => { 
+          setCurrentCategory(cat); 
+          setExamSession(null); 
+          setCurrentExerciseId(null); 
+          setIsSandboxOpen(false);
+          if (cat === Category.POINT_CLOUD) setCurrentTopic(PointCloudTopic.MIXED);
+          else if (cat === Category.GEOSPATIAL) setCurrentTopic(GeospatialTopic.MIXED);
+        }}
         onOpenSandbox={() => setIsSandboxOpen(true)}
         reviewCount={reviewList.length}
         onResetData={() => { storageService.clear(); setExercises([]); setCurrentExerciseId(null); setExamSession(null); }}
@@ -294,11 +301,11 @@ export default function App() {
                       ))}
                     </div>
                   </div>
-                  {currentCategory === Category.POINT_CLOUD && (
+                  {(currentCategory === Category.POINT_CLOUD || currentCategory === Category.GEOSPATIAL) && (
                     <div>
                       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 block">Topic</label>
                       <div className="space-y-1">
-                        {Object.values(PointCloudTopic).map(t => (
+                        {(currentCategory === Category.POINT_CLOUD ? Object.values(PointCloudTopic) : Object.values(GeospatialTopic)).map(t => (
                           <button key={t} onClick={() => setCurrentTopic(t)} className={`w-full text-left py-2 px-3 rounded text-xs transition-all flex justify-between items-center ${currentTopic === t ? 'bg-slate-900 text-white font-bold' : 'bg-slate-50 text-slate-600 border border-slate-100 hover:border-slate-300'}`}>{t} {currentTopic === t && <div className="w-1 h-1 bg-blue-400 rounded-full" />}</button>
                         ))}
                       </div>

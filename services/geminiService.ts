@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { Category, Difficulty, EvaluationResponse, GeneratedExerciseResponse, PointCloudTopic } from "../types";
+import { Category, Difficulty, EvaluationResponse, GeneratedExerciseResponse, PointCloudTopic, GeospatialTopic } from "../types";
 import { getAnyApiKey, getNextApiKey, getSelectedModel } from "./apiKeyStore";
 
 const DEFAULT_MODELS = [
@@ -82,6 +82,14 @@ export const generateExercise = async (
     specificContext = `Focus on LiDAR processing for Construction. Schema: (x, y, z, intensity, classification).`;
     if (topic && topic !== PointCloudTopic.MIXED) {
       specificContext += ` MANDATORY TOPIC: "${topic}".`;
+    }
+  } else if (category === Category.GEOSPATIAL) {
+    specificContext = `Focus on Geospatial data analysis (lat/lon, wkt, zones).`;
+    if (topic) {
+      if (topic === GeospatialTopic.WINDOW) specificContext += ` MANDATORY: Use PySpark Window functions (Window.partitionBy, orderBy, rowsBetween).`;
+      else if (topic === GeospatialTopic.JOIN) specificContext += ` MANDATORY: Use PySpark Joins (spatial or attribute based).`;
+      else if (topic === GeospatialTopic.BROADCAST) specificContext += ` MANDATORY: Use Broadcast Join (broadcast(df)) for optimization.`;
+      else if (topic !== GeospatialTopic.MIXED) specificContext += ` MANDATORY TOPIC: "${topic}".`;
     }
   }
 
