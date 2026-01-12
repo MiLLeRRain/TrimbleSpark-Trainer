@@ -53,12 +53,26 @@ export const ExamView: React.FC<ExamViewProps> = ({ session, onQuestionSubmit, o
           }]);
         }
       });
+
+      // Fix: Remeasure fonts when they are loaded to prevent cursor misalignment
+      document.fonts.ready.then(() => {
+        monaco.editor.remeasureFonts();
+      });
     }
 
     if (editorRef.current) {
       editorRef.current.setValue("from pyspark.sql import functions as F\n\n# Write your code here to transform 'df'\ndef solution (df): \n    # Your logic here\n    return result_df\n");
     }
   }, [session.currentIndex]);
+
+  // Fix: Trigger manually layout update when maximize state changes (after transition)
+  useEffect(() => {
+    if (!editorRef.current) return;
+    const timer = setTimeout(() => {
+      editorRef.current?.layout();
+    }, 550); // Slightly longer than duration-500
+    return () => clearTimeout(timer);
+  }, [isMaximized]);
 
   const handleNextAction = async () => { 
     const code = editorRef.current?.getValue() || "";
